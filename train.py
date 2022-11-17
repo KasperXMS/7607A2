@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from model import LSTMTagger
-from model import TransformerModel
-from model import generate_square_subsequent_mask
 from utils import *
 from seqeval.metrics import accuracy_score
 from seqeval.metrics import classification_report
@@ -17,12 +15,7 @@ epochs = 12
 EMBEDDING_DIM = 64
 HIDDEN_DIM = 64
 validation_interval = 3
-batch_size = 1024
-emsize = 200  # embedding dimension
-d_hid = 200  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 2  # number of heads in nn.MultiheadAttention
-dropout = 0.2  # dropout probability
+batch_size = 64
 
 # dataset used
 training_data_filepath = "./conll2003/train.txt"
@@ -110,13 +103,9 @@ def train():
     tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
     # model settings
-    #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix))
-    model = TransformerModel(len(word_to_ix), emsize, nhead, d_hid, nlayers, dropout)
-    src_mask = generate_square_subsequent_mask(batch_size)
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix))
     if torch.cuda.is_available():
         model = model.cuda()
-        src_mask = src_mask.cuda()
-
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
@@ -134,17 +123,13 @@ def train():
             # Clear the accumulated gradients in the torch
             model.zero_grad()
 
-            seq_len = len(sentence)
-            if seq_len < batch_size:
-                src_mask = src_mask[:seq_len, :seq_len]
-
             # Forward
             sentence_in = prepare_sequence(sentence, word_to_ix)
             targets = prepare_sequence(tags, tag_to_ix)
-            tag_scores = model(sentence_in, src_mask)
+            tag_scores = model(sentence_in)
 
             # loss computation and backward propagation
-            loss = loss_function(tag_scores.view(-1, len(word_to_ix)), targets)
+            loss = loss_function(tag_scores, targets)
             loss.backward()
             optimizer.step()
 
@@ -159,7 +144,7 @@ def train():
         print()
 
     plt.plot(x_list, y_list)
-    plt.show()
+    plt.savefig("acc_result.png")
 
     torch.save(model.state_dict(), "BasicLSTMTagger.pth")
 
