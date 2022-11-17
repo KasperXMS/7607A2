@@ -36,13 +36,14 @@ def prepare_sequence(seq, to_ix):
 
 
 # validation or testing on the model checkpoint
-def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag):
+def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag, report=False):
     print()
     pred_right = 0
     total_num = 0
     f = open("result.txt", "a+")
     tag_ground_truth = []
     tag_prediction = []
+    total_loss = 0
     with torch.no_grad():
         print("Validating at epoch {}...".format(epoch))
         f.write("\nValidating at epoch {}...\n".format(epoch))
@@ -56,7 +57,10 @@ def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag):
                     word_to_ix[word] = len(word_to_ix)
 
             inputs = prepare_sequence(sentence, word_to_ix)
+            targets = prepare_sequence(tags, tag_to_ix)
             tag_scores = model.forward(inputs)
+            loss_function = nn.CrossEntropyLoss()
+            total_loss += loss_function(tag_scores, targets) * batch_size
 
             if torch.cuda.is_available():
                 tag_scores = tag_scores.cpu().detach()
@@ -85,11 +89,14 @@ def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag):
             valid_id += 1
 
         print()
+        print("Validation Loss: {:.6f}".format(total_loss / valid_id))
+        f.write("Validation Loss: {:.6f}\n".format(total_loss / valid_id))
 
-    print(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
-    f.write(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
-    print("Total: {}, Right: {}, Accuracy: {:.2f}%".format(total_num, pred_right,
-                                                           float(pred_right) / float(total_num) * 100.0))
+    if report:
+        print(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
+        f.write(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
+        print("Total: {}, Right: {}, Accuracy: {:.2f}%".format(total_num, pred_right,
+                                                               float(pred_right) / float(total_num) * 100.0))
 
     f.close()
     return float(pred_right) / float(total_num) * 100.0
@@ -117,6 +124,7 @@ def train():
     for epoch in range(epochs):
         print("Epoch {} training...".format(epoch))
         batch_id = 1
+        total_loss = 0.0
         for sentence, tags in training_data:
             print("\rTraining progress {:.2f}% -- batch {}/{}".format(float(batch_id) / float(train_length) * 100.0, batch_id, train_length), end='')
 
@@ -137,9 +145,11 @@ def train():
 
         # validation settings
         if (epoch + 1) % validation_interval == 0:
-            acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag)
+            acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
             y_list.append(acc)
             x_list.append((epoch + 1) / validation_interval)
+        else:
+            acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag)
 
         print()
 
