@@ -20,10 +20,10 @@ testing_data = dataset_build(test_data_filepath)
 
 # Hyper-parameters
 learning_rate = 0.1
-epochs = 40
+epochs = 12
 EMBEDDING_DIM = 64
 HIDDEN_DIM = 64
-validation_interval = 5
+validation_interval = 3
 
 
 # word_list to tensor conversion
@@ -86,8 +86,8 @@ def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag):
 
         print()
 
-    print(classification_report(tag_ground_truth, tag_prediction))
-    f.write(classification_report(tag_ground_truth, tag_prediction))
+    print(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
+    f.write(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
     print("Total: {}, Right: {}, Accuracy: {:.2f}%".format(total_num, pred_right,
                                                            float(pred_right) / float(total_num) * 100.0))
 
