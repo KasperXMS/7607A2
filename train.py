@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from model import LSTMTagger
+from model import TransformerModel
 from utils import *
 from seqeval.metrics import accuracy_score
 from seqeval.metrics import classification_report
@@ -9,22 +10,27 @@ from seqeval.scheme import IOB2
 from matplotlib import pyplot as plt
 import datetime
 
-# dataset used
-training_data_filepath = "./conll2003/train.txt"
-validation_data_filepath = "./conll2003/valid.txt"
-test_data_filepath = "./conll2003/test.txt"
-
-training_data = dataset_build(training_data_filepath)
-validation_data = dataset_build(validation_data_filepath)
-testing_data = dataset_build(test_data_filepath)
-
 # Hyper-parameters
 learning_rate = 0.1
 epochs = 12
 EMBEDDING_DIM = 64
 HIDDEN_DIM = 64
 validation_interval = 3
+batch_size = 32
+emsize = 200  # embedding dimension
+d_hid = 200  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 2  # number of heads in nn.MultiheadAttention
+dropout = 0.2  # dropout probability
 
+# dataset used
+training_data_filepath = "./conll2003/train.txt"
+validation_data_filepath = "./conll2003/valid.txt"
+test_data_filepath = "./conll2003/test.txt"
+
+training_data = dataset_build_with_batch(training_data_filepath, batch_size)
+validation_data = dataset_build(validation_data_filepath)
+testing_data = dataset_build(test_data_filepath)
 
 # word_list to tensor conversion
 def prepare_sequence(seq, to_ix):
@@ -104,6 +110,7 @@ def train():
 
     # model settings
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix))
+    # model = TransformerModel(len(word_to_ix), emsize, nhead, d_hid, nlayers, dropout)
     if torch.cuda.is_available():
         model = model.cuda()
     loss_function = nn.NLLLoss()
@@ -118,7 +125,7 @@ def train():
         print("Epoch {} training...".format(epoch))
         batch_id = 1
         for sentence, tags in training_data:
-            print("\rTraining progress {:.2f}%".format(float(batch_id) / float(train_length) * 100.0), end='')
+            print("\rTraining progress {:.2f}% -- batch {}/{}".format(float(batch_id) / float(train_length) * 100.0, batch_id, train_length), end='')
 
             # Clear the accumulated gradients in the torch
             model.zero_grad()

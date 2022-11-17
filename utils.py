@@ -52,6 +52,35 @@ def dataset_build(filepath):
 
     return training_data
 
+def dataset_build_with_batch(filepath, batch_size):
+    training_data = []
+    f = open(filepath, "r")
+    lines = f.readlines()
+    f.close()
+    sentence = []
+    tags = []
+    for line in lines:
+        if len(line) > 4:
+            word = line.split(' ')[0]
+            tag = line.split(' ')[3][:-1]
+            sentence.append(word)
+            tags.append(tag)
+
+    sentence_temp = []
+    tag_temp = []
+    for i in range(len(sentence)):
+        sentence_temp.append(sentence[i])
+        tag_temp.append(tags[i])
+        if (i + 1) % batch_size == 0:
+            training_data.append((sentence_temp, tag_temp))
+            sentence_temp = []
+            tag_temp = []
+
+    if len(sentence_temp) > 0:
+        training_data.append((sentence_temp, tag_temp))
+
+    return training_data
+
 def summary(filepath):
     idx_dict = {}
     idx_dict['total'] = 0
@@ -73,4 +102,4 @@ def summary(filepath):
 
 
 if __name__ == "__main__":
-    print(summary("/Users/kasperxiaomingshen/Downloads/conll2003/train.txt"))
+    print(dataset_build_with_batch("conll2003/train.txt", 32))

@@ -10,26 +10,23 @@ from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator
 from model import TransformerModel
 from model import generate_square_subsequent_mask
+from utils import *
 
-train_iter = WikiText2(split='train')
-tokenizer = get_tokenizer('basic_english')
-vocab = build_vocab_from_iterator(map(tokenizer, train_iter), specials=['<unk>'])
-vocab.set_default_index(vocab['<unk>'])
+# dataset used
+training_data_filepath = "./conll2003/train.txt"
+validation_data_filepath = "./conll2003/valid.txt"
+test_data_filepath = "./conll2003/test.txt"
 
-def data_process(raw_text_iter: dataset.IterableDataset) -> Tensor:
-    """Converts raw text into a flat Tensor."""
-    for item in raw_text_iter:
-        print(item)
-        print(vocab(tokenizer(item)))
-    data = [torch.tensor(vocab(tokenizer(item)), dtype=torch.long) for item in raw_text_iter]
-    return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
+training_data = dataset_build(training_data_filepath)
+validation_data = dataset_build(validation_data_filepath)
+testing_data = dataset_build(test_data_filepath)
 
-# train_iter was "consumed" by the process of building the vocab,
-# so we have to create it again
-train_iter, val_iter, test_iter = WikiText2()
-train_data = data_process(train_iter)
-val_data = data_process(val_iter)
-test_data = data_process(test_iter)
+def prepare_sequence(seq, to_ix):
+    idxs = [to_ix[w] for w in seq]
+    if torch.cuda.is_available():
+        return torch.tensor(idxs, dtype=torch.long).cuda()
+    else:
+        return torch.tensor(idxs, dtype=torch.long)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -51,25 +48,7 @@ def batchify(data: Tensor, bsz: int) -> Tensor:
 
 batch_size = 20
 eval_batch_size = 10
-train_data = batchify(train_data, batch_size)  # shape [seq_len, batch_size]
-val_data = batchify(val_data, eval_batch_size)
-test_data = batchify(test_data, eval_batch_size)
 bptt = 35
-
-def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
-    """
-    Args:
-        source: Tensor, shape [full_seq_len, batch_size]
-        i: int
-
-    Returns:
-        tuple (data, target), where data has shape [seq_len, batch_size] and
-        target has shape [seq_len * batch_size]
-    """
-    seq_len = min(bptt, len(source) - 1 - i)
-    data = source[i:i+seq_len]
-    target = source[i+1:i+1+seq_len].reshape(-1)
-    return data, target
 
 ntokens = len(vocab)  # size of vocabulary
 emsize = 200  # embedding dimension
@@ -89,14 +68,10 @@ def train(model: nn.Module) -> None:
     total_loss = 0.
     log_interval = 200
     start_time = time.time()
-    src_mask = generate_square_subsequent_mask(bptt).to(device)
 
     num_batches = len(train_data) // bptt
     for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
         data, targets = get_batch(train_data, i)
-        seq_len = data.size(0)
-        if seq_len != bptt:  # only on last batch
-            src_mask = src_mask[:seq_len, :seq_len]
         output = model(data, src_mask)
         loss = criterion(output.view(-1, ntokens), targets)
 
