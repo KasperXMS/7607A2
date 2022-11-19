@@ -142,6 +142,8 @@ def train():
 
         x_list.append(epoch + 1)
         y_list.append(valid_loss)
+        if torch.cuda.is_available():
+            training_loss = training_loss.cpu()
         z_list.append(training_loss.detach())
 
         if valid_loss < min_valid_loss:
