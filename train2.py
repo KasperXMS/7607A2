@@ -14,7 +14,7 @@ import datetime
 
 # Hyper-parameters
 learning_rate = 0.2
-epochs = 50
+epochs = 10
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 128
 validation_interval = 3
@@ -140,10 +140,9 @@ def train():
         # validation settings
         valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
 
-        if (epoch + 1) % validation_interval == 0:
-            x_list.append(epoch + 1)
-            y_list.append(valid_loss.detach())
-            z_list.append(training_loss.detach())
+        x_list.append(epoch + 1)
+        y_list.append(valid_loss)
+        z_list.append(training_loss.detach())
 
         if valid_loss < min_valid_loss:
             min_valid_loss = valid_loss
@@ -154,6 +153,8 @@ def train():
 
     plt.plot(x_list, y_list, label='Validation loss')
     plt.plot(x_list, z_list, label='Training loss')
+    plt.legend(loc="upper left")
+    plt.grid(b=True, axis='y')
     plt.savefig("loss.png")
 
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
