@@ -15,7 +15,7 @@ epochs = 12
 EMBEDDING_DIM = 64
 HIDDEN_DIM = 64
 validation_interval = 3
-batch_size = 64
+batch_size = 32
 
 # dataset used
 training_data_filepath = "./conll2003/train.txt"

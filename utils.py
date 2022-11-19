@@ -1,7 +1,7 @@
 def tag_to_idx(filepath):
-    idx_dict = {}
-    idx_dict_reverse = {}
-    id_to_assign = 0
+    idx_dict = {'': 0}
+    idx_dict_reverse = {'0': ''}
+    id_to_assign = 1
     f = open(filepath, "r")
     lines = f.readlines()
     f.close()
@@ -16,9 +16,9 @@ def tag_to_idx(filepath):
     return idx_dict, idx_dict_reverse
 
 def word_to_idx(filepath_list):
-    idx_dict = {}
+    idx_dict = {'': 0}
     for filepath in filepath_list:
-        id_to_assign = 0
+        id_to_assign = 1
         f = open(filepath, "r")
         lines = f.readlines()
         f.close()
@@ -59,27 +59,44 @@ def dataset_build_with_batch(filepath, batch_size):
     f.close()
     sentence = []
     tags = []
+    max_sentence_length = 0
     for line in lines:
         if len(line) > 4:
             word = line.split(' ')[0]
             tag = line.split(' ')[3][:-1]
             sentence.append(word)
             tags.append(tag)
+        else:
+            if len(sentence) > max_sentence_length:
+                max_sentence_length = len(sentence)
+            training_data.append((sentence, tags))
+            sentence = []
+            tags = []
 
-    sentence_temp = []
-    tag_temp = []
-    for i in range(len(sentence)):
-        sentence_temp.append(sentence[i])
-        tag_temp.append(tags[i])
+
+    for item in training_data:
+        old_len = len(item[0])
+        for i in range(old_len, max_sentence_length):
+            item[0].append('')
+            item[1].append('')
+
+    training_data_new = []
+    sentence = []
+    tags = []
+    for i, item in enumerate(training_data):
+        for word in item[0]:
+            sentence.append(word)
+        for tag in item[1]:
+            tags.append(tag)
         if (i + 1) % batch_size == 0:
-            training_data.append((sentence_temp, tag_temp))
-            sentence_temp = []
-            tag_temp = []
+            training_data_new.append((sentence, tags))
+            sentence = []
+            tags = []
 
-    if len(sentence_temp) > 0:
-        training_data.append((sentence_temp, tag_temp))
+    if len(sentence) > 0:
+        training_data_new.append((sentence, tags))
 
-    return training_data
+    return training_data_new
 
 def summary(filepath):
     idx_dict = {}

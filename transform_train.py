@@ -108,7 +108,7 @@ def get_batch(source_d: Tensor, source_f: Tensor, i: int) -> Tuple[Tensor, Tenso
     return data, target
 
 
-ntokens = len(vocab)  # size of vocabulary
+ntokens = len(word_to_ix)  # size of vocabulary
 emsize = 200  # embedding dimension
 d_hid = 200  # dimension of the feedforward network model in nn.TransformerEncoder
 nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
@@ -167,13 +167,14 @@ def evaluate(model: nn.Module, eval_data: Tensor, eval_target: Tensor) -> float:
             if seq_len != bptt:
                 src_mask = src_mask[:seq_len, :seq_len]
             output = model(data, src_mask)
-            output_flat = output.view(-1, ntokens)
+            output_flat = output.view(-1, len(tag_to_ix))
+            print(len(output_flat[0]))
             total_loss += seq_len * criterion(output_flat, targets).item()
     return total_loss / (len(eval_data) - 1)
 
 
 best_val_loss = float('inf')
-epochs = 3
+epochs = 1
 best_model = None
 
 for epoch in range(1, epochs + 1):
