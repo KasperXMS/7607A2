@@ -21,7 +21,6 @@ validation_interval = 3
 batch_size = 10
 
 # global variable
-min_valid_loss = float('inf')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # dataset used
@@ -62,7 +61,7 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, report=False
         dataset_tag.append(data_tuple[1])
 
     with torch.no_grad():
-        print("Validating at epoch {}...".format(epoch))
+        print("Validating at epoch {}...".format(epoch + 1))
         for data_tuple in data:
             inputs = torch.tensor([data_tuple[0]], dtype=torch.long).to(device)
             y = torch.tensor([data_tuple[1]], dtype=torch.long).to(device)
@@ -85,11 +84,8 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, report=False
     # print((tag_prediction))
     print(classification_report(tag_ground_truth, tag_prediction, ))
     print("Validation loss: ", float(total_loss))
-    if float(total_loss) < min_valid_loss:
-        print("Saving model...")
-        torch.save(model.state_dict(), "BasicLSTMTagger.pth")
 
-
+    return float(total_loss)
 
 
 def train():
@@ -108,7 +104,7 @@ def train():
         dataset_word.append(data_tuple[0])
         dataset_tag.append(data_tuple[1])
 
-    torch_set = Data.TensorDataset(torch.tensor(dataset_word, dtype=torch.long).to(device), torch.tensor(dataset_tag, dtype=torch.long).to(device))
+    torch_set = Data.TensorDataset(torch.tensor(dataset_word, dtype=torch.long), torch.tensor(dataset_tag, dtype=torch.long))
     loader = Data.DataLoader(
         dataset=torch_set,
         batch_size=batch_size,
@@ -119,16 +115,18 @@ def train():
     model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-
-    train_length = len(training_data)
     y_list = []
     x_list = []
+    z_list = []
+    min_valid_loss = float('inf')
 
     # Training
     for epoch in range(epochs):
         training_loss = 0.0
         for i, (batch_x, batch_y) in enumerate(loader):
             model.zero_grad()
+            batch_x = batch_x.to(device)
+            batch_y = batch_y.to(device)
             tag_scores = model(batch_x)
 
             tag_scores = tag_scores.view(-1, tag_scores.shape[2])
@@ -140,17 +138,25 @@ def train():
             optimizer.step()
 
         # validation settings
-        #if (epoch + 1) % validation_interval == 0:
-        validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
-        #    y_list.append(acc)
-        #    x_list.append((epoch + 1) / validation_interval)
-        #else:
-        #    acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag)
+        valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
+
+        if (epoch + 1) % validation_interval == 0:
+            x_list.append(epoch)
+            y_list.append(valid_loss)
+            z_list.append(training_loss)
+
+
+
+        if valid_loss < min_valid_loss:
+            min_valid_loss = valid_loss
+            print("Saving model...")
+            torch.save(model.state_dict(), "BasicLSTMTagger.pth")
 
         print()
 
-    #plt.plot(x_list, y_list)
-    #plt.savefig("acc_result.png")
+    plt.plot(x_list, y_list, label='Validation loss')
+    plt.plot(x_list, z_list, label='Training loss')
+    plt.savefig("loss.png")
 
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
