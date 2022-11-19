@@ -18,8 +18,8 @@ training_data = dataset_build(training_data_filepath)
 validation_data = dataset_build(validation_data_filepath)
 testing_data = dataset_build(test_data_filepath)
 
-EMBEDDING_DIM = 64
-HIDDEN_DIM = 64
+EMBEDDING_DIM = 32
+HIDDEN_DIM = 32
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 

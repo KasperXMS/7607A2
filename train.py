@@ -15,7 +15,7 @@ epochs = 12
 EMBEDDING_DIM = 64
 HIDDEN_DIM = 64
 validation_interval = 3
-batch_size = 32
+batch_size = 64
 
 # dataset used
 training_data_filepath = "./conll2003/train.txt"
@@ -92,6 +92,8 @@ def validate(epoch, data, model, word_to_ix, tag_to_ix, ix_to_tag, report=False)
         print("Validation Loss: {:.6f}".format(total_loss / valid_id))
         f.write("Validation Loss: {:.6f}\n".format(total_loss / valid_id))
 
+    print(tag_ground_truth)
+    print(tag_prediction)
     if report:
         print(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
         f.write(classification_report(tag_ground_truth, tag_prediction, mode='strict', scheme=IOB2))
@@ -149,7 +151,7 @@ def train():
             y_list.append(acc)
             x_list.append((epoch + 1) / validation_interval)
         else:
-            acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag)
+            acc = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
 
         print()
 
