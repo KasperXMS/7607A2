@@ -2,3 +2,4 @@ BasicLSTMTagger.pth
 result.txt
 result_v1.txt
 accuracy_v1.png
+.idea
