@@ -141,11 +141,9 @@ def train():
         valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, report=True)
 
         if (epoch + 1) % validation_interval == 0:
-            x_list.append(epoch)
-            y_list.append(valid_loss)
-            z_list.append(training_loss)
-
-
+            x_list.append(epoch + 1)
+            y_list.append(valid_loss.detach())
+            z_list.append(training_loss.detach())
 
         if valid_loss < min_valid_loss:
             min_valid_loss = valid_loss
