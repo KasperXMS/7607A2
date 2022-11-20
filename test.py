@@ -31,7 +31,7 @@ testing_data = dataset_build_with_batch(test_data_filepath, batch_size)
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
-model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size)
+model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
 model.load_state_dict(torch.load("BasicLSTMTagger.pth"))
 print(model)
 
