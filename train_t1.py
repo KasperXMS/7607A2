@@ -7,7 +7,7 @@ import torch.utils.data as Data
 from model import TransformerModel
 from model import generate_square_subsequent_mask
 from utils import *
-from seqeval.metrics import accuracy_score
+from seqeval.metrics import f1_score
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from matplotlib import pyplot as plt
@@ -87,10 +87,10 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, num_of_batch
 
     # print((tag_ground_truth))
     # print((tag_prediction))
-    print(classification_report(tag_ground_truth, tag_prediction, ))
+    print(classification_report(tag_ground_truth, tag_prediction))
     print("Validation loss: ", float(total_loss / num_of_batches))
 
-    return float(total_loss / num_of_batches)
+    return f1_score(tag_ground_truth, tag_prediction), float(total_loss / num_of_batches)
 
 
 def train():
@@ -125,6 +125,7 @@ def train():
     x_list = []
     z_list = []
     min_valid_loss = float('inf')
+    min_f1 = float('inf')
 
     # Training
     for epoch in range(epochs):
@@ -147,7 +148,7 @@ def train():
             optimizer.step()
 
         # validation settings
-        valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, len(loader), report=True)
+        f1, valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, len(loader), report=True)
 
         x_list.append(epoch + 1)
         y_list.append(valid_loss)
@@ -155,8 +156,8 @@ def train():
             training_loss = training_loss.cpu()
         z_list.append(training_loss.detach())
 
-        if valid_loss < min_valid_loss:
-            min_valid_loss = valid_loss
+        if f1 < min_f1:
+            min_f1 = f1
             print("Saving model...")
             torch.save(model.state_dict(), "BasicTransformerTagger.pth")
 
