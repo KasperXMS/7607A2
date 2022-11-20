@@ -116,7 +116,7 @@ def train():
     x_list = []
     z_list = []
     min_valid_loss = float('inf')
-    min_f1 = float('inf')
+    max_f1 = float('-inf')
 
     # Training
     for epoch in range(epochs):
@@ -144,8 +144,8 @@ def train():
             training_loss = training_loss.cpu()
         z_list.append(training_loss.detach())
 
-        if f1 < min_f1:
-            min_f1 = f1
+        if f1 > max_f1:
+            max_f1 = f1
             print("Saving model...")
             torch.save(model.state_dict(), "BasicLSTMTagger.pth")
 
