@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from model import LSTMTagger2
+from model import TransformerModel
+from model import generate_square_subsequent_mask
 from utils import *
 from seqeval.metrics import accuracy_score
 from seqeval.metrics import classification_report
@@ -15,6 +16,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 128
+nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 2  # number of heads in nn.MultiheadAttention
+dropout = 0.2  # dropout probability
+validation_interval = 3
 batch_size = 32
 
 training_data_filepath = "./conll2003/train.txt"
@@ -28,14 +33,14 @@ testing_data = dataset_build_with_batch(test_data_filepath, batch_size)
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
-model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size)
-model.load_state_dict(torch.load("BasicLSTMTagger.pth"))
+model = TransformerModel(len(word_to_ix), len(tag_to_ix), EMBEDDING_DIM, nhead, HIDDEN_DIM, nlayers, dropout).to(device)
+model.load_state_dict(torch.load("BasicTransformerTagger.pth"))
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
 with torch.no_grad():
-    data = copy.deepcopy(training_data)
+    data = copy.deepcopy(testing_data)
     print()
     pred_right = 0
     total_num = 0
@@ -56,10 +61,11 @@ with torch.no_grad():
     with torch.no_grad():
         print("Testing...")
         for data_tuple in data:
+            mask = generate_square_subsequent_mask(1).to(device)
             inputs = torch.tensor([data_tuple[0]], dtype=torch.long).to(device)
             y = torch.tensor([data_tuple[1]], dtype=torch.long).to(device)
-            tag_scores = model(inputs)
-            loss_function = nn.NLLLoss()
+            tag_scores = model(inputs, mask)
+            loss_function = nn.CrossEntropyLoss()
 
             tag_scores_ = tag_scores.view(-1, tag_scores.shape[2])
             y_ = y.view(y.shape[0] * y.shape[1])
@@ -73,8 +79,6 @@ with torch.no_grad():
             pred = [ix_to_tag[str(int(t))] for t in pred_raw[0]]
             tag_prediction.append(pred)
 
-    # print((tag_ground_truth))
-    # print((tag_prediction))
     print(classification_report(tag_ground_truth, tag_prediction))
 
 f = open('output.txt', 'w+')

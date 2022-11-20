@@ -52,18 +52,6 @@ def dataset_build(filepath):
 
     return training_data
 
-def dataset_build_direct(filepath):
-    training_data = []
-    f = open(filepath, "r")
-    lines = f.readlines()
-    f.close()
-    for line in lines:
-        if len(line) > 4:
-            word = line.split(' ')[0]
-            tag = line.split(' ')[3][:-1]
-            training_data.append((word, tag))
-
-    return training_data
 
 def dataset_build_with_batch(filepath, batch_size):
     training_data = []
