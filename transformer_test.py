@@ -5,6 +5,9 @@ from model import TransformerModel
 from model import generate_square_subsequent_mask
 from utils import *
 from seqeval.metrics import accuracy_score
+from seqeval.metrics import precision_score
+from seqeval.metrics import recall_score
+from seqeval.metrics import f1_score
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from matplotlib import pyplot as plt
@@ -16,8 +19,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 128
-nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 2  # number of heads in nn.MultiheadAttention
+nlayers = 4  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 8  # number of heads in nn.MultiheadAttention
 dropout = 0.2  # dropout probability
 validation_interval = 3
 batch_size = 32
@@ -27,14 +30,15 @@ validation_data_filepath = "./conll2003/valid.txt"
 test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
-validation_data = dataset_build_with_batch(validation_data_filepath, batch_size)
-testing_data = dataset_build_with_batch(test_data_filepath, batch_size)
+validation_data = dataset_build(validation_data_filepath)
+testing_data = dataset_build(test_data_filepath)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
 model = TransformerModel(len(word_to_ix), len(tag_to_ix), EMBEDDING_DIM, nhead, HIDDEN_DIM, nlayers, dropout).to(device)
 model.load_state_dict(torch.load("BasicTransformerTagger.pth"))
+print(model)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
@@ -80,10 +84,15 @@ with torch.no_grad():
             tag_prediction.append(pred)
 
     print(classification_report(tag_ground_truth, tag_prediction))
+    print("Accuracy: ", accuracy_score(tag_ground_truth, tag_prediction))
+    print("Precision: ", precision_score(tag_ground_truth, tag_prediction))
+    print("Recall: ", recall_score(tag_ground_truth, tag_prediction))
+    print("F1 score: ", f1_score(tag_ground_truth, tag_prediction))
 
-f = open('output.txt', 'w+')
-for i in range(len(training_data)):
-    for j in range(len(training_data[i][0])):
-        f.write('{} {}\n'.format(training_data[i][0][j], tag_prediction[i][j]))
+
+f = open('output_transform.txt', 'w+')
+for i in range(len(testing_data)):
+    for j in range(len(testing_data[i][0])):
+        f.write('{} {} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j], tag_ground_truth[i][j]))
 
 f.close()

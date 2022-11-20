@@ -4,9 +4,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as Data
-from model import TransformerModel
-from model import generate_square_subsequent_mask
+from model import LSTMTagger2
 from utils import *
+from torch.nn.utils.rnn import pad_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 from seqeval.metrics import accuracy_score
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
@@ -16,15 +17,11 @@ from tqdm import tqdm
 
 # Hyper-parameters
 learning_rate = 0.1
-epochs = 150
+epochs = 60
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 128
-nlayers = 4  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 8  # number of heads in nn.MultiheadAttention
-dropout = 0.2  # dropout probability
-momentum = 0.05
 validation_interval = 3
-batch_size = 20
+batch_size = 32
 
 # global variable
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,10 +31,8 @@ training_data_filepath = "./conll2003/train.txt"
 validation_data_filepath = "./conll2003/valid.txt"
 test_data_filepath = "./conll2003/test.txt"
 
-training_data = dataset_build_with_batch(training_data_filepath, batch_size)
+training_data = dataset_build(training_data_filepath)
 validation_data = dataset_build(validation_data_filepath)
-testing_data = dataset_build(test_data_filepath)
-
 
 # word_list to tensor conversion
 def prepare_sequence(seq, to_ix):
@@ -45,6 +40,24 @@ def prepare_sequence(seq, to_ix):
     if torch.cuda.is_available():
         return torch.tensor(idxs, dtype=torch.long).to(device)
 
+class MyDataset(Data.Dataset):
+    def __init__(self, data):
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, i):
+        return self.data[i]
+
+def collate_fn(examples):
+    lengths = torch.tensor([len(ex[0]) for ex in examples])
+    inputs = [torch.tensor(ex[0]) for ex in examples]
+    targets = [torch.tensor(ex[1]) for ex in examples]
+    # 对batch内的样本进行padding，使其具有相同长度
+    inputs = pad_sequence(inputs,batch_first=True,padding_value=0)
+    targets = pad_sequence(targets,batch_first=True,padding_value=0)
+    return inputs , lengths , targets , inputs != 0
 
 # validation or testing on the model checkpoint
 def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, num_of_batches, report=False):
@@ -67,11 +80,10 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, num_of_batch
     with torch.no_grad():
         print("Validating at epoch {}...".format(epoch + 1))
         for data_tuple in data:
-            mask = generate_square_subsequent_mask(1).to(device)
             inputs = torch.tensor([data_tuple[0]], dtype=torch.long).to(device)
             y = torch.tensor([data_tuple[1]], dtype=torch.long).to(device)
-            tag_scores = model(inputs, mask)
-            loss_function = nn.CrossEntropyLoss()
+            tag_scores = model(inputs)
+            loss_function = nn.NLLLoss()
 
             tag_scores_ = tag_scores.view(-1, tag_scores.shape[2])
             y_ = y.view(y.shape[0] * y.shape[1])
@@ -109,17 +121,21 @@ def train():
         dataset_word.append(data_tuple[0])
         dataset_tag.append(data_tuple[1])
 
-    torch_set = Data.TensorDataset(torch.tensor(dataset_word, dtype=torch.long), torch.tensor(dataset_tag, dtype=torch.long))
+    raw_word = [torch.tensor(word, dtype=torch.long) for word in dataset_word]
+    raw_tag = [torch.tensor(tag, dtype=torch.long) for tag in dataset_tag]
+    torch_set = MyDataset([(word, tag) for word, tag in zip(raw_word, raw_tag)])
     loader = Data.DataLoader(
         dataset=torch_set,
         batch_size=batch_size,
-        shuffle=True,
+        collate_fn=collate_fn,
         num_workers=2
     )
 
+    print(enumerate(loader))
+
     # model settings
-    model = TransformerModel(len(word_to_ix), len(tag_to_ix), EMBEDDING_DIM, nhead, HIDDEN_DIM, nlayers, dropout).to(device)
-    loss_function = nn.CrossEntropyLoss()
+    model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
+    loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     y_list = []
     x_list = []
@@ -129,13 +145,11 @@ def train():
     # Training
     for epoch in range(epochs):
         training_loss = 0.0
-        for i, (batch_x, batch_y) in enumerate(tqdm(loader, desc='Training epoch {}'.format(epoch + 1))):
-            mask = generate_square_subsequent_mask(len(batch_x)).to(device)
-
+        for batch in enumerate(tqdm(loader, desc=f'Training epoch {epoch}')):
             model.zero_grad()
             batch_x = batch_x.to(device)
             batch_y = batch_y.to(device)
-            tag_scores = model(batch_x, mask)
+            tag_scores = model(batch_x)
 
             tag_scores = tag_scores.view(-1, tag_scores.shape[2])
             batch_y = batch_y.view(batch_y.shape[0] * batch_y.shape[1])
@@ -143,7 +157,6 @@ def train():
             training_loss += loss / len(loader)
             # print('\rEpoch {} batch {} / {} under training, loss = {}'.format(epoch + 1, i + 1, len(loader), training_loss), end='')
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
 
         # validation settings
@@ -158,7 +171,7 @@ def train():
         if valid_loss < min_valid_loss:
             min_valid_loss = valid_loss
             print("Saving model...")
-            torch.save(model.state_dict(), "BasicTransformerTagger.pth")
+            torch.save(model.state_dict(), "BasicLSTMTagger.pth")
 
         print()
 
@@ -166,7 +179,7 @@ def train():
     plt.plot(x_list, z_list, label='Training loss')
     plt.legend(loc="upper left")
     plt.grid(b=True, axis='y')
-    plt.savefig("loss_transformer.png")
+    plt.savefig("loss_lstm.png")
 
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 

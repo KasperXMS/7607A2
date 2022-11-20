@@ -15,11 +15,11 @@ from tqdm import tqdm
 
 # Hyper-parameters
 learning_rate = 0.1
-epochs = 60
+epochs = 100
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 128
 validation_interval = 3
-batch_size = 32
+batch_size = 20
 
 # global variable
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,9 +30,7 @@ validation_data_filepath = "./conll2003/valid.txt"
 test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
-validation_data = dataset_build_with_batch(validation_data_filepath, batch_size)
-testing_data = dataset_build(test_data_filepath)
-
+validation_data = dataset_build(validation_data_filepath)
 
 # word_list to tensor conversion
 def prepare_sequence(seq, to_ix):

@@ -4,6 +4,9 @@ import torch.optim as optim
 from model import LSTMTagger2
 from utils import *
 from seqeval.metrics import accuracy_score
+from seqeval.metrics import precision_score
+from seqeval.metrics import recall_score
+from seqeval.metrics import f1_score
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from matplotlib import pyplot as plt
@@ -30,6 +33,7 @@ tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
 model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size)
 model.load_state_dict(torch.load("BasicLSTMTagger.pth"))
+print(model)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
@@ -76,10 +80,14 @@ with torch.no_grad():
     # print((tag_ground_truth))
     # print((tag_prediction))
     print(classification_report(tag_ground_truth, tag_prediction))
+    print("Accuracy: ", accuracy_score(tag_ground_truth, tag_prediction))
+    print("Precision: ", precision_score(tag_ground_truth, tag_prediction))
+    print("Recall: ", recall_score(tag_ground_truth, tag_prediction))
+    print("F1 score: ", f1_score(tag_ground_truth, tag_prediction))
 
-f = open('output.txt', 'w+')
-for i in range(len(training_data)):
-    for j in range(len(training_data[i][0])):
-        f.write('{} {}\n'.format(training_data[i][0][j], tag_prediction[i][j]))
+f = open('output_lstm.txt', 'w+')
+for i in range(len(testing_data)):
+    for j in range(len(testing_data[i][0])):
+        f.write('{} {} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j], tag_ground_truth[i][j]))
 
 f.close()
