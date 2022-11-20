@@ -26,7 +26,7 @@ test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
 validation_data = dataset_build_with_batch(validation_data_filepath, batch_size)
-testing_data = dataset_build_with_batch(test_data_filepath, batch_size)
+testing_data = dataset_build(test_data_filepath, batch_size)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
