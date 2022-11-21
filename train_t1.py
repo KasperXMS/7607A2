@@ -171,8 +171,8 @@ def train():
         z_list.append(training_loss.detach())
 
         # if validation f1 score becomes the current minimum, save the model
-        if f1 > max_f1:
-            max_f1 = f1
+        if valid_loss < min_valid_loss:
+            min_valid_loss = valid_loss
             print("Saving model...")
             torch.save(model.state_dict(), "BasicTransformerTagger.pth")
 
