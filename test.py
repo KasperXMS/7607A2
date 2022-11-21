@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from model import LSTMTagger2
+from model import LSTMTagger
 from utils import *
 from seqeval.metrics import accuracy_score
 from seqeval.metrics import precision_score
@@ -26,12 +26,12 @@ test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
 validation_data = dataset_build_with_batch(validation_data_filepath, batch_size)
-testing_data = dataset_build(test_data_filepath)
+testing_data, testing_middle = fullset_build(test_data_filepath)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
-model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
+model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
 model.load_state_dict(torch.load("BasicLSTMTagger.pth"))
 print(model)
 
@@ -77,8 +77,6 @@ with torch.no_grad():
             pred = [ix_to_tag[str(int(t))] for t in pred_raw[0]]
             tag_prediction.append(pred)
 
-    # print((tag_ground_truth))
-    # print((tag_prediction))
     print(classification_report(tag_ground_truth, tag_prediction))
     print("Accuracy: ", accuracy_score(tag_ground_truth, tag_prediction))
     print("Precision: ", precision_score(tag_ground_truth, tag_prediction))
@@ -89,6 +87,10 @@ f = open('output_lstm.txt', 'w+')
 f1 = open('./conll2003/test.txt', 'r')
 for i in range(len(testing_data)):
     for j in range(len(testing_data[i][0])):
-        f.write('{} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j]))
+        f.write('{} {} {} {}\n'.format(testing_data[i][0][j], testing_middle[i][j][0], testing_middle[i][j][1], tag_prediction[i][j]))
 
+    f.write('\n')
+
+
+f1.close()
 f.close()

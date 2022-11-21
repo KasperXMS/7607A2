@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as Data
-from model import LSTMTagger2
+from model import LSTMTagger
 from utils import *
 from seqeval.metrics import f1_score
 from seqeval.metrics import classification_report
@@ -16,9 +16,8 @@ from tqdm import tqdm
 # Hyper-parameters
 learning_rate = 0.1
 epochs = 100
-EMBEDDING_DIM = 128
-HIDDEN_DIM = 128
-validation_interval = 3
+EMBEDDING_DIM = 128    # word embedding dimension
+HIDDEN_DIM = 128       # hidden layer dimension
 batch_size = 20
 
 # global variable
@@ -29,6 +28,7 @@ training_data_filepath = "./conll2003/train.txt"
 validation_data_filepath = "./conll2003/valid.txt"
 test_data_filepath = "./conll2003/test.txt"
 
+# loading the dataset
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
 validation_data = dataset_build(validation_data_filepath)
 
@@ -47,6 +47,7 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, num_of_batch
     tag_prediction = []
     total_loss = 0.0
 
+    # convert the words and tags to indexes
     for i in range(len(data)):
         tag_ground_truth.append(data[i][1])
         data[i] = ([word_to_ix[t] for t in data[i][0]], [tag_to_ix[t] for t in data[i][1]])
@@ -60,25 +61,27 @@ def validate(epoch, data_, model, word_to_ix, tag_to_ix, ix_to_tag, num_of_batch
     with torch.no_grad():
         print("Validating at epoch {}...".format(epoch + 1))
         for data_tuple in data:
+
+            # convert the data to tensor
             inputs = torch.tensor([data_tuple[0]], dtype=torch.long).to(device)
             y = torch.tensor([data_tuple[1]], dtype=torch.long).to(device)
+
+            # validate the model
             tag_scores = model(inputs)
             loss_function = nn.NLLLoss()
-
             tag_scores_ = tag_scores.view(-1, tag_scores.shape[2])
             y_ = y.view(y.shape[0] * y.shape[1])
-
             loss = loss_function(tag_scores_, y_)
             total_loss += loss
 
+            # convert the tag score to predicted tags
             if torch.cuda.is_available():
                 tag_scores = tag_scores.cpu().detach()
             pred_raw = torch.argmax(tag_scores, dim=2)
             pred = [ix_to_tag[str(int(t))] for t in pred_raw[0]]
             tag_prediction.append(pred)
 
-    # print((tag_ground_truth))
-    # print((tag_prediction))
+    # print classification report and calculate f1 score
     print(classification_report(tag_ground_truth, tag_prediction, ))
     print("Validation loss: ", float(total_loss / num_of_batches))
 
@@ -92,15 +95,18 @@ def train():
     word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
     tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
+    # convert the words and tags into indexes
     for i in range(len(training_data)):
         training_data[i] = ([word_to_ix[t] for t in training_data[i][0]], [tag_to_ix[t] for t in training_data[i][1]])
 
+    # reformat the dataset
     dataset_word = []
     dataset_tag = []
     for data_tuple in training_data:
         dataset_word.append(data_tuple[0])
         dataset_tag.append(data_tuple[1])
 
+    # convert the data to tensors and load into torch dataset
     torch_set = Data.TensorDataset(torch.tensor(dataset_word, dtype=torch.long), torch.tensor(dataset_tag, dtype=torch.long))
     loader = Data.DataLoader(
         dataset=torch_set,
@@ -109,9 +115,11 @@ def train():
     )
 
     # model settings
-    model = LSTMTagger2(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word_to_ix), len(tag_to_ix), batch_size).to(device)
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+
+    # record training, validation loss and validation f1 score of each epoch
     y_list = []
     x_list = []
     z_list = []
@@ -123,20 +131,22 @@ def train():
     for epoch in range(epochs):
         training_loss = 0.0
         for i, (batch_x, batch_y) in enumerate(tqdm(loader, desc='Training epoch {}'.format(epoch + 1))):
+
+            # forward the model
             model.zero_grad()
             batch_x = batch_x.to(device)
             batch_y = batch_y.to(device)
             tag_scores = model(batch_x)
 
+            # calculate loss and backward
             tag_scores = tag_scores.view(-1, tag_scores.shape[2])
             batch_y = batch_y.view(batch_y.shape[0] * batch_y.shape[1])
             loss = loss_function(tag_scores, batch_y)
             training_loss += loss / len(loader)
-            # print('\rEpoch {} batch {} / {} under training, loss = {}'.format(epoch + 1, i + 1, len(loader), training_loss), end='')
             loss.backward()
             optimizer.step()
 
-        # validation settings
+        # validation
         f1, valid_loss = validate(epoch, validation_data, model, word_to_ix, tag_to_ix, ix_to_tag, len(loader), report=True)
 
         x_list.append(epoch + 1)
@@ -146,6 +156,7 @@ def train():
             training_loss = training_loss.cpu()
         z_list.append(training_loss.detach())
 
+        # if validation f1 score becomes the current minimum, save the model
         if f1 > max_f1:
             max_f1 = f1
             print("Saving model...")
@@ -153,12 +164,14 @@ def train():
 
         print()
 
+    # plot the loss graph
     plt.plot(x_list, y_list, label='Validation loss')
     plt.plot(x_list, z_list, label='Training loss')
     plt.legend(loc="upper left")
     plt.grid(b=True, axis='y')
     plt.savefig("loss_lstm.png")
 
+    # plot the f1 score graph
     plt.figure()
     plt.plot(x_list, a_list, label='F1 score')
     plt.legend(loc="upper left")

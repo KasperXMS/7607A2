@@ -31,7 +31,7 @@ test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
 validation_data = dataset_build(validation_data_filepath)
-testing_data = dataset_build(test_data_filepath)
+testing_data, testing_middle = fullset_build(test_data_filepath)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
@@ -91,8 +91,13 @@ with torch.no_grad():
 
 
 f = open('output_transform.txt', 'w+')
+f1 = open('./conll2003/test.txt', 'r')
 for i in range(len(testing_data)):
     for j in range(len(testing_data[i][0])):
-        f.write('{} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j]))
+        f.write('{} {} {} {}\n'.format(testing_data[i][0][j], testing_middle[i][j][0], testing_middle[i][j][1], tag_prediction[i][j]))
 
+    f.write('\n')
+
+
+f1.close()
 f.close()

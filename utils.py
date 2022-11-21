@@ -52,6 +52,31 @@ def dataset_build(filepath):
 
     return training_data
 
+def fullset_build(filepath):
+    training_data = []
+    middles = []
+    f = open(filepath, "r")
+    lines = f.readlines()
+    f.close()
+    sentence = []
+    tags = []
+    middle = []
+    for line in lines:
+        if len(line) > 4:
+            word = line.split(' ')[0]
+            tag = line.split(' ')[3][:-1]
+            sentence.append(word)
+            tags.append(tag)
+            middle.append((line.split(' ')[1], line.split(' ')[2]))
+
+        else:
+            training_data.append((sentence, tags))
+            middles.append(middle)
+            sentence = []
+            tags = []
+            middle = []
+
+    return training_data, middles
 
 def dataset_build_with_batch(filepath, batch_size):
     training_data = []
