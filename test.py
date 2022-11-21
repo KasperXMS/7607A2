@@ -26,7 +26,7 @@ test_data_filepath = "./conll2003/test.txt"
 
 training_data = dataset_build_with_batch(training_data_filepath, batch_size)
 validation_data = dataset_build_with_batch(validation_data_filepath, batch_size)
-testing_data = dataset_build(test_data_filepath, batch_size)
+testing_data = dataset_build(test_data_filepath)
 
 word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test_data_filepath])
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
@@ -39,7 +39,7 @@ word_to_ix = word_to_idx([training_data_filepath, validation_data_filepath, test
 tag_to_ix, ix_to_tag = tag_to_idx(training_data_filepath)
 
 with torch.no_grad():
-    data = copy.deepcopy(training_data)
+    data = copy.deepcopy(testing_data)
     print()
     pred_right = 0
     total_num = 0
@@ -86,8 +86,9 @@ with torch.no_grad():
     print("F1 score: ", f1_score(tag_ground_truth, tag_prediction))
 
 f = open('output_lstm.txt', 'w+')
+f1 = open('./conll2003/test.txt', 'r')
 for i in range(len(testing_data)):
     for j in range(len(testing_data[i][0])):
-        f.write('{} {} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j], tag_ground_truth[i][j]))
+        f.write('{} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j]))
 
 f.close()

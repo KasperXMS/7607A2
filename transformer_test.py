@@ -93,6 +93,6 @@ with torch.no_grad():
 f = open('output_transform.txt', 'w+')
 for i in range(len(testing_data)):
     for j in range(len(testing_data[i][0])):
-        f.write('{} {} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j], tag_ground_truth[i][j]))
+        f.write('{} {}\n'.format(testing_data[i][0][j], tag_prediction[i][j]))
 
 f.close()

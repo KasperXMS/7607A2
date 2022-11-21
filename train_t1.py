@@ -124,6 +124,7 @@ def train():
     y_list = []
     x_list = []
     z_list = []
+    a_list = []
     min_valid_loss = float('inf')
     max_f1 = float('-inf')
 
@@ -152,6 +153,7 @@ def train():
 
         x_list.append(epoch + 1)
         y_list.append(valid_loss)
+        a_list.append(f1 * 100)
         if torch.cuda.is_available():
             training_loss = training_loss.cpu()
         z_list.append(training_loss.detach())
@@ -168,6 +170,12 @@ def train():
     plt.legend(loc="upper left")
     plt.grid(b=True, axis='y')
     plt.savefig("loss_transformer.png")
+
+    plt.figure()
+    plt.plot(x_list, a_list, label='F1 score')
+    plt.legend(loc="upper left")
+    plt.grid(b=True, axis='y')
+    plt.savefig("f1_transformer.png")
 
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
